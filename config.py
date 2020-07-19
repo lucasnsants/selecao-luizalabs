@@ -1,7 +1,6 @@
 import os
 from dotenv import load_dotenv
-load_dotenv()
-
+load_dotenv(dotenv_path=os.environ['ENV_FILE_LOCATION'])
 
 class BaseConfig(object):
     SECRET_KEY = os.environ['SECRET_KEY']

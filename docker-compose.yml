@@ -4,6 +4,7 @@ services:
   postgres:
     restart: always
     image: postgres:latest
+    container_name: challenge
     environment:
       POSTGRES_PASSWORD: challenge
       POSTGRES_USER: challenge
@@ -13,5 +14,31 @@ services:
     ports:
       - "5432:5432"
 
+  postgres-test:
+    restart: always
+    image: postgres:latest
+    container_name: challenge-test
+    environment:
+        POSTGRES_PASSWORD: challenge-test
+        POSTGRES_USER: challenge-test
+        POSTGRES_DB: challenge-test
+    volumes:
+        - db-data-test:/var/lib/postgresql/data
+    ports:
+        - "5433:5432"
+
+  redis:
+      image: redis:latest
+      container_name: redis
+      expose:
+        - 6379
+      ports: 
+        - "6379:6379"
+      volumes:
+        - redis-data:/data
+        
+
 volumes:
   db-data:
+  db-data-test:
+  redis-data:
