@@ -1,3 +1,4 @@
+import datetime
 import os
 from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.environ['ENV_FILE_LOCATION'])
@@ -11,6 +12,7 @@ class BaseConfig(object):
     DB_SERVICE = os.environ['DB_SERVICE']
     DB_PORT = os.environ['DB_PORT']
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    JWT_ACCESS_TOKEN_EXPIRES = datetime.timedelta(days=30)
     SQLALCHEMY_DATABASE_URI = 'postgresql://{0}:{1}@{2}:{3}/{4}'.format(
         DB_USER, DB_PASS, DB_SERVICE, DB_PORT, DB_NAME
     )

@@ -1,10 +1,11 @@
 import datetime
 import json
+from functools import wraps
 from flask import Flask, request, jsonify
 from flask_restful import Resource, Api, marshal, reqparse, abort
 from flask_jwt_extended import (
-    JWTManager, jwt_required, create_access_token,
-    get_jwt_identity
+    JWTManager, jwt_required, verify_jwt_in_request, create_access_token,
+    get_jwt_identity, get_jwt_claims
 )
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
@@ -26,23 +27,48 @@ parser.add_argument('limit', default=10, type=int)
 parser.add_argument('product_id', type=int)
 
 
+def doesnt_exist(**kwargs):
+    if kwargs['obj'] == None:
+        print(kwargs['obj'])
+        abort(kwargs['status_code'], msg="{} doesn't exist".format(kwargs['id']))
+
+def admin_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        verify_jwt_in_request()
+        claims = get_jwt_claims()
+        if claims['roles'] != 'admin':
+            return { 'msg': 'Admins only!' }, 403
+        else:
+            return fn(*args, **kwargs)
+    return wrapper
+
+@jwt.user_claims_loader
+def add_claims_to_access_token(identity):
+    if identity['rule_id'] == 1:
+        return {'roles': 'admin'}
+    else:
+        return {'roles': 'peasant'}
+
+
 class ProductSchema(ma.Schema):
     class Meta:
         fields = ('id', 'title', 'image', 'price', 'brand', 'review_score', 'created_at', 'updated_at')
-
 
 product_schema = ProductSchema()
 products_schema = ProductSchema(many=True)
 
 
+class UserSchema(ma.Schema):
+    class Meta:
+        fields = ('id', 'name', 'email', 'rule_id')
+
+user_schema = UserSchema()
+
+
 class HelloWorld(Resource):
     def get(self):
-        return {'hello': 'world!'}
-
-def doesnt_exist(**kwargs):
-    if kwargs['obj'] is None:
-        abort(kwargs['status_code'], msg="{} doesn't exist".format(kwargs['id']))
-
+        return {'version': '1.0.0'}
 
 class Register(Resource):
     def post(self):
@@ -62,7 +88,7 @@ class Register(Resource):
             db.session.add(new_user)
             db.session.commit()
 
-            access_token = create_access_token(identity=new_user.email)
+            access_token = create_access_token(identity=user_schema.dump(user))
 
             return { 'access_token': access_token }, 201
         except Exception as exc:
@@ -78,15 +104,16 @@ class Auth(Resource):
         if not user:
             return {"msg": "Missing email parameter"}, 400
         
-        access_token = create_access_token(identity=user.email)
+        access_token = create_access_token(identity=user_schema.dump(user))
         return { 'access_token': access_token }, 200
 
 class ProductList(Resource):
     @jwt_required
     def get(self):
         args = parser.parse_args()
-        products = Product.query.order_by(Product.created_at.desc()).paginate(page=args['page'], per_page=args['limit'], error_out=False)
-        total_count = Product.query.count()
+        query = Product.query.order_by(Product.created_at.desc())
+        products = query.paginate(page=args['page'], per_page=args['limit'], error_out=False)
+        total_count = query.count()
         result = products_schema.dump(products.items)
         return jsonify({
             'list': result,
@@ -96,7 +123,7 @@ class ProductList(Resource):
             'total_count': total_count
         })
     
-    @jwt_required
+    @admin_required
     def post(self):
         try:
             product = request.get_json()
@@ -121,7 +148,7 @@ class ProductId(Resource):
         doesnt_exist(obj=product, id=product_id, status_code=404)
         return product_schema.jsonify(product)
 
-    @jwt_required
+    @admin_required
     def put(self, product_id):
         try:
             product = Product.query.get(product_id)
@@ -140,7 +167,7 @@ class ProductId(Resource):
         except Exception as exc:
             return jsonify(exc), 500
 
-    @jwt_required
+    @admin_required
     def delete(self, product_id):
         try:
             product = Product.query.get(product_id)
@@ -152,12 +179,137 @@ class ProductId(Resource):
             return jsonify(exc), 500
 
 
-api.add_resource(HelloWorld, '/')
-api.add_resource(ProductList, '/product/')
-api.add_resource(ProductId, '/product/<product_id>')
+class UserList(Resource):
+    @admin_required
+    def get(self):
+        args = parser.parse_args()
+        query = User.query.order_by(User.created_at.desc())
+        users = query.paginate(page=args['page'], per_page=args['limit'], error_out=False)
+        total_count = query.count()
+        return jsonify({
+            'list': user_schema.dump(users),
+            'page': args['page'],
+            'to_page': args['page'] + 1,
+            'page_size': args['limit'],
+            'total_count': total_count
+        })
 
-api.add_resource(Auth, '/auth/login')
-api.add_resource(Register, '/auth/register')
+    @admin_required
+    def post(self):
+        try:
+            data = request.get_json()
+            name = data['name']
+            email = data['email']
+            rule_id = data['rule_id']
+            updated_at = datetime.datetime.now()
+
+            user = User(name=name, email=email, rule_id=rule_id, updated_at=updated_at)
+
+            db.session.add(user)
+            db.session.commit()
+
+            return user_schema.dump(user), 201
+        except Exception as exc:
+            return jsonify(exc), 500
+
+class UserId(Resource):
+    @jwt_required
+    def get(self, user_id):
+        user = User.query.get(user_id)
+        doesnt_exist(obj=user, id=user_id, status_code=404)
+        return user_schema.jsonify(user)
+
+    @jwt_required
+    def put(self, user_id):
+        try:
+            user = User.query.get(user_id)
+            data = request.get_json()
+            user['name'] = data['name']
+            user['email'] = data['email']
+            user['rule_id'] = data['rule_id']
+            user['updated_at'] = datetime.datetime.now()
+
+            db.session.commit()
+
+            return user_schema.dump(user), 201
+        except Exception as exc:
+            return jsonify(exc), 500
+
+    @jwt_required
+    def delete(self, user_id):
+        try:
+            user = User.query.get(user_id)
+            doesnt_exist(obj=user, id=user_id, status_code=404)
+            db.session.delete(user)
+            db.session.commit()
+            return { 'msg': 'successful deletion.' }, 201
+        except Exception as exc:
+            return jsonify(exc), 500
+
+
+class FavoriteList(Resource):
+    @jwt_required
+    def get(self):
+        args = parser.parse_args()
+        current_user = get_jwt_identity()
+        print(current_user['id'])
+        query = Product.query.join(Product, User.products).filter(User.id == current_user['id'])
+        favorites = query.paginate(page=args['page'], per_page=args['limit'], error_out=False)
+        total_count = query.count()
+        return jsonify({
+            'list': products_schema.dump(favorites.items),
+            'page': args['page'],
+            'to_page': args['page'] + 1,
+            'page_size': args['limit'],
+            'total_count': total_count
+        })
+
+    @jwt_required
+    def post(self):
+        current_user = get_jwt_identity()
+        product_id = request.get_json().get('product_id')
+        product = Product.query.get(product_id)
+        query = Product.query.join(Product.users).filter(User.id == current_user['id'], Product.id == product_id)
+        if product == None:
+            return { "msg": "Product not found." }, 404
+        
+        duplicate = query.first()
+        if duplicate is not None:
+            return { "msg": "Product duplicate." }, 409
+        try:
+            favorite = Favorite(product_id=product_id, user_id=current_user['id'])
+            db.session.add(favorite)
+            db.session.commit()
+            product = query.first()
+            return product_schema.dump(product), 201
+        except Exception as exc:
+            return json.dumps(exc), 500
+
+    @jwt_required
+    def delete(self):
+        try:
+            current_user = get_jwt_identity()
+            product_id = request.get_json().get('product_id')
+            favorite = Favorite.query.filter_by(product_id=product_id, user_id=current_user['id']).first()
+            db.session.delete(favorite)
+            db.session.commit()
+
+            return { 'msg': 'successful deletion.' }, 201
+        except Exception as exc:
+            return jsonify(exc)
+
+
+api.add_resource(HelloWorld, '/')
+api.add_resource(ProductList, '/v1/product/')
+api.add_resource(ProductId, '/v1/product/<product_id>')
+
+api.add_resource(Auth, '/v1/signin')
+api.add_resource(Register, '/v1/signup')
+
+api.add_resource(UserList, '/v1/users/')
+api.add_resource(UserId, '/v1/user/', '/v1/user/<user_id>')
+
+api.add_resource(FavoriteList, '/v1/favorite/')
 
 if __name__ == '__main__':
     app.run(debug=True)

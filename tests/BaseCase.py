@@ -22,7 +22,7 @@ class BaseCase(unittest.TestCase):
             'email': 'admin@admin.com'
         })
 
-        resp_user = self.app.post('/auth/login', headers={'Content-type': 'application/json'}, data=payload)
+        resp_user = self.app.post('/v1/signin', headers={'Content-type': 'application/json'}, data=payload)
 
         self.assertEqual(str, type(resp_user.json['access_token']))
         self.assertEqual(200, resp_user.status_code)

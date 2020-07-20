@@ -2,10 +2,19 @@ import datetime
 from app import db
 
 
-favorites = db.Table('favorites', 
-    db.Column('product_id', db.Integer, db.ForeignKey('products.id'), primary_key=True),
-    db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True)
-)
+class Favorite(db.Model):
+    __tablename__ = 'favorites'
+
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    def __init__(self, product_id, user_id):
+        self.product_id = product_id
+        self.user_id = user_id
+
+    def __repr__(self):
+        return '<Favorite %r>' % self.product_id
 
 class Rule(db.Model):
     __tablename__ = 'rules'
@@ -31,9 +40,9 @@ class User(db.Model):
     name = db.Column(db.String, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     rule_id = db.Column(db.Integer, db.ForeignKey('rules.id'), nullable=False)
-    favorites = db.relationship('Product', secondary=favorites, lazy='subquery', backref=db.backref('users', lazy=True))
     created_at = db.Column(db.DateTime, nullable=False)
     updated_at = db.Column(db.DateTime, nullable=False)
+    products = db.relationship("Product",secondary='favorites',backref="product_user")
 
     def __init__(self, name, email, rule_id, updated_at):
         self.name = name
@@ -54,6 +63,7 @@ class Product(db.Model):
     price = db.Column(db.Float, nullable=False)
     brand = db.Column(db.String(64), nullable=False)
     review_score = db.Column(db.Text, nullable=True)
+    users = db.relationship("User",secondary='favorites',backref="user_product")
     created_at = db.Column(db.DateTime, nullable=False)
     updated_at = db.Column(db.DateTime, nullable=False)
 

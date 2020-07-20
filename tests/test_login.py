@@ -1,6 +1,6 @@
 import json
 
-from test.BaseCase import BaseCase
+from tests.BaseCase import BaseCase
 
 
 class TestAuthLogin(BaseCase):
@@ -9,7 +9,7 @@ class TestAuthLogin(BaseCase):
             'email': 'admin@admin.com'
         })
 
-        response = self.app.post('/auth/login', headers={"Content-Type": "application/json"}, data=payload)
+        response = self.app.post('/v1/signin', headers={"Content-Type": "application/json"}, data=payload)
 
         self.assertEqual(str, type(response.json['access_token']))
         self.assertEqual(200, response.status_code)
@@ -19,7 +19,7 @@ class TestAuthLogin(BaseCase):
             'email': 'admin@admin.test'
         })
 
-        response = self.app.post('/auth/login', headers={"Content-Type": "application/json"}, data=payload)
+        response = self.app.post('/v1/signin', headers={"Content-Type": "application/json"}, data=payload)
 
         self.assertEqual('Missing email parameter', response.json['msg'])
         self.assertEqual(400, response.status_code)
