@@ -35,6 +35,12 @@ docker-compose up ou docker-compose up --build
 - `.env` ~> desenvolvimento
 - `.env.test` ~> testes
 
+Criando banco de dados com base nos *models*
+
+```
+ENV_FILE_LOCATION=.env python create_db.py
+```
+
 Populando banco de dados
 
 ```
