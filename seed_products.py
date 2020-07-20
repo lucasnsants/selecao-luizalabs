@@ -1,7 +1,7 @@
 import datetime
 import json
-from app import db
-from models import Product
+from luizalab import db
+from luizalab.database.models import Product
 
 def seedProduct():
     products = []

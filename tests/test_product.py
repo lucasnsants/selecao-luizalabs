@@ -2,7 +2,7 @@ import datetime
 import json
 
 from tests.BaseCase import BaseCase
-from models import User
+from luizalab.database.models import User
 
 class TestProduct(BaseCase):
     def test_succeesful_list_product(self):
@@ -44,7 +44,7 @@ class TestProduct(BaseCase):
 
     def test_get_product_per_id(self):
         resp_product = self.app.get('/v1/product/1',
-            headers={'Content-type': 'application/json', 'Authorization': 'Bearer {}'.format(self.access_token)})
+            headers={'Authorization': 'Bearer {}'.format(self.access_token)})
         
         self.assertEqual(dict, type(resp_product.json))
         self.assertEqual('Cake - Night And Day Choclate', resp_product.json['title'])
@@ -52,7 +52,7 @@ class TestProduct(BaseCase):
 
     def test_product_already_exists_per_id(self):
         resp_product = self.app.get('/v1/product/99',
-            headers={'Content-type': 'application/json', 'Authorization': 'Bearer {}'.format(self.access_token)})
+            headers={'Authorization': 'Bearer {}'.format(self.access_token)})
         
         self.assertEqual(dict, type(resp_product.json))
         self.assertEqual("99 doesn't exist", resp_product.json['msg'])

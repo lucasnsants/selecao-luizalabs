@@ -1,6 +1,6 @@
 import datetime
-from app import db
-from models import Rule
+from luizalab import db
+from luizalab.database.models import Rule
 
 def seed_rule():
     rule_admin = Rule(name='admin', updated_at=datetime.datetime.now())

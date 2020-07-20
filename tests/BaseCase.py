@@ -2,8 +2,8 @@ import datetime
 import json
 import unittest
 
-from app import app, db
-from models import Rule, User
+from luizalab import app, db
+from luizalab.database.models import Rule, User
 from seed_rule import seed_rule
 from seed_admin import seed_admin
 from seed_products import seedProduct

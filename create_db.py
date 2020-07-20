@@ -1,4 +1,4 @@
-from app import db
+from luizalab import db
 
 
 db.create_all()
